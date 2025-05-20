@@ -17,7 +17,7 @@ def write_to_excel(lic_db,excel_file):
     ws_lic.title = "Users"
     wb.create_sheet(title="Overview")
     ws_overview = wb["Overview"]
-    users_header_required = ["License Group","License Feature","License ID","Checked out BY","Machine","Expiry","Checkout Expiry","Checkout Period"]
+    users_header_required = ["License Group","License Feature","License ID","Checked out By","Email","Machine","Expiry","Checkout Expiry","Checkout Period"]
     overview_header_required = ["License Group","License Feature","License Count","License Checkouts"]
     ws_lic.append(users_header_required)
     ws_overview.append(overview_header_required)
@@ -84,6 +84,8 @@ def get_pscad_license_usage(username, password):
         json_data = response.json()
         html_data = json_data.get("layout")
         soup = BeautifulSoup(html_data, 'html.parser')
+
+        members_db={}
         workgroups = soup.find_all('div', class_='cardLineItem')
         search_db = {}
         for wg in workgroups:
@@ -97,13 +99,30 @@ def get_pscad_license_usage(username, password):
             search_db[name] = {"Id":wg.get("id"),"Created": creation, "Expiration": expiration,
                 "Maintenance Expiry": maintenance, "Members_count": members,"Members":[], "Licenses": licenses, "Join Codes": join_codes}
             lic_db=search_db.copy()
-        url = "https://mycentre.pscad.com/logics/ajax/workgroupMember/ajx-license-view.php"
-
+        lic_url = "https://mycentre.pscad.com/logics/ajax/workgroupMember/ajx-license-view.php"
+        mem_url = "https://mycentre.pscad.com/logics/ajax/workgroupAdmin/ajx-members-view.php"
         for each_pscad in search_db:
             files = {
                 "workgroupID": (None, lic_db[each_pscad].get("Id"))
             }
-            response = session.post(url, files=files)
+            response = session.post(mem_url, files=files)
+            json_data = response.json()
+            html_data = json_data.get("membersLayout")
+            mem_soup = BeautifulSoup(html_data, 'html.parser')
+            members = mem_soup.find_all('div', class_='cardLineOneMember')
+            for each_member in members:
+                member_name = each_member.find('div', class_='columnMemberName').text.strip()
+                member_email = each_member.find('div', class_='columnMemberEmail').text.strip()
+                member_username = each_member.find('div', class_='columnMemberUsername').text.strip()
+                if member_name in members_db:
+                    print(f"Duplicate member name found: '{member_name}' with email '{member_email}' and username '{member_username}'")
+                members_db[member_username] = {
+                    "Name": member_name,
+                    "Email": member_email,
+                    "Username": member_username
+                }
+
+            response = session.post(lic_url, files=files)
             json_data = response.json()
             html_data = json_data.get("layout")
             soup = BeautifulSoup(html_data, 'html.parser')
@@ -136,12 +155,15 @@ def get_pscad_license_usage(username, password):
                         'License Group': license_name,
                         'License Feature':lic_feature,
                         'License ID': license_id,
-                        'Checked out BY': checked_out_by,
+                        'Checked out By': checked_out_by,
+                        'Email': members_db.get(checked_out_by, {}).get("Email"),
                         'Machine': machine,
                         'Expiry': expiry,
                         'Checkout Expiry': checkout_expiry,
                         'Checkout Period': checkout_period
                     })
+
+
     return lic_db
 
 if __name__ == "__main__":
@@ -150,7 +172,7 @@ if __name__ == "__main__":
     json_file = "license_users.json"
     excel_file = "license_users.xlsx"
     lic_db = get_pscad_license_usage(username, password)
-
+    print("[*] Since PSCAD License information is name based, so you can ask users to use username in place of their actual Name in profile, it will help you to populate entries for Email")
     write_to_excel(lic_db,excel_file)
     json.dump(lic_db,open(f"{datetime.datetime.now().strftime("%d%m%Y_%H%M%S")}_{json_file}","w+"),indent=4)
     
