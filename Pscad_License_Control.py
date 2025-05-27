@@ -51,7 +51,7 @@ def write_to_excel(lic_db,excel_file):
                         )
         ws.auto_filter.ref = ws.dimensions
 
-    wb.save(f"{datetime.datetime.now().strftime("%d%m%Y_%H%M%S")}_{excel_file}")
+    wb.save(f"{datetime.datetime.now().strftime('%d%m%Y_%H%M%S')}_{excel_file}")
         
 def get_pscad_license_usage(username, password):
     session = requests.session()
@@ -174,5 +174,5 @@ if __name__ == "__main__":
     lic_db = get_pscad_license_usage(username, password)
     print("[*] Since PSCAD License information is name based, so you can ask users to use username in place of their actual Name in profile, it will help you to populate entries for Email")
     write_to_excel(lic_db,excel_file)
-    json.dump(lic_db,open(f"{datetime.datetime.now().strftime("%d%m%Y_%H%M%S")}_{json_file}","w+"),indent=4)
+    json.dump(lic_db,open(f"{datetime.datetime.now().strftime('%d%m%Y_%H%M%S')}_{json_file}","w+"),indent=4)
     
